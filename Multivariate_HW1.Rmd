@@ -144,3 +144,4 @@ autoplot(MprcompZ, data=DF, scale=0, shape='region', col='region',label=TRUE, la
 fviz_pca_biplot(MprcompZ, habillage=DF$region, repel=TRUE)
 ```
 
+
