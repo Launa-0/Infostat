@@ -5,3 +5,5 @@ Datamining for Business Model: 비즈니스를 위한 데이터 마이닝
 Text Mining: 텍스트마이닝
 
 Regression Analysis: 회귀분석
+
+Object-Oriented Programming: 객체지향 프로그래밍
