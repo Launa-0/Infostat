@@ -1,0 +1,27 @@
+---
+title: "Gaussian Distribution"
+output: html_document
+date: "2025-03-08"
+---
+
+
+* LaTex:전산학자가 만든 수학 typesetting system. Donald Knuth
+
+$y_i=\beta_0+\beta_1x_{i1}+\ldots+\beta_kx_{ik}+\epsilon_i$
+$$y_i=\beta_0+\beta_1x_{i1}+\ldots+\beta_kx_{ik}+\epsilon_i$$
+
+
+
+##R: Gaussian Distribution
+
+* $x\sim N(\mu, \sigma^2)$
+* 정규분포의 확률밀도함수
+*정규분포
+
+```{r}
+xg<-seq(150,200,by=0.5)
+plot(xg,dnorm(xg,mean=175,sd=8),type='l')
+abline(v=175,lty=2)
+```
+
+
