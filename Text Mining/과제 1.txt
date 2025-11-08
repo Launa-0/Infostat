@@ -1,0 +1,567 @@
+문제1. R 텍스트 마이닝 전처리 
+
+R의 mpg 데이터를 이용하여 pipe 연산자와 tidyR 방식을 이용하여 다음을 구하시오
+
+ 
+
+> library(ggplot2)
+
+> library(dplyr)
+
+ 
+
+1. hwy가 10 이상인 것들만 추려내시오
+
+ 
+
+> mpg %>%filter(hwy >= 10)
+
+# A tibble: 234 × 11
+
+   manufacturer model      displ  year   cyl trans drv     cty   hwy fl  
+
+   <chr>        <chr>      <dbl> <int> <int> <chr> <chr> <int> <int> <chr>
+
+ 1 audi         a4           1.8  1999     4 auto… f        18    29 p   
+
+ 2 audi         a4           1.8  1999     4 manu… f        21    29 p   
+
+ 3 audi         a4           2    2008     4 manu… f        20    31 p   
+
+ 4 audi         a4           2    2008     4 auto… f        21    30 p   
+
+ 5 audi         a4           2.8  1999     6 auto… f        16    26 p   
+
+ 6 audi         a4           2.8  1999     6 manu… f        18    26 p   
+
+ 7 audi         a4           3.1  2008     6 auto… f        18    27 p   
+
+ 8 audi         a4 quattro   1.8  1999     4 manu… 4        18    26 p   
+
+ 9 audi         a4 quattro   1.8  1999     4 auto… 4        16    25 p   
+
+10 audi         a4 quattro   2    2008     4 manu… 4        20    28 p   
+
+# ℹ 224 more rows
+
+# ℹ 1 more variable: class <chr>
+
+# ℹ Use `print(n = ...)` to see more rows
+
+ 
+
+2. year가 2000년 이후인 것만 추려내시오
+
+ 
+
+> mpg %>%filter(year > 2000)
+
+# A tibble: 117 × 11
+
+   manufacturer model      displ  year   cyl trans drv     cty   hwy fl  
+
+   <chr>        <chr>      <dbl> <int> <int> <chr> <chr> <int> <int> <chr>
+
+ 1 audi         a4           2    2008     4 manu… f        20    31 p   
+
+ 2 audi         a4           2    2008     4 auto… f        21    30 p   
+
+ 3 audi         a4           3.1  2008     6 auto… f        18    27 p   
+
+ 4 audi         a4 quattro   2    2008     4 manu… 4        20    28 p   
+
+ 5 audi         a4 quattro   2    2008     4 auto… 4        19    27 p   
+
+ 6 audi         a4 quattro   3.1  2008     6 auto… 4        17    25 p   
+
+ 7 audi         a4 quattro   3.1  2008     6 manu… 4        15    25 p   
+
+ 8 audi         a6 quattro   3.1  2008     6 auto… 4        17    25 p   
+
+ 9 audi         a6 quattro   4.2  2008     8 auto… 4        16    23 p   
+
+10 chevrolet    c1500 sub…   5.3  2008     8 auto… r        14    20 r   
+
+# ℹ 107 more rows
+
+# ℹ 1 more variable: class <chr>
+
+# ℹ Use `print(n = ...)` to see more rows
+
+ 
+
+3. cty가 10 미만이고, year가 2000년 미만인 것들만 추려내시오. (&를 활용할 것)
+
+ 
+
+> mpg %>%filter(cty < 10 & year < 2000)
+
+# A tibble: 0 × 11
+
+# ℹ 11 variables: manufacturer <chr>, model <chr>, displ <dbl>,
+
+#   year <int>, cyl <int>, trans <chr>, drv <chr>, cty <int>, hwy <int>,
+
+#   fl <chr>, class <chr>
+
+ 
+
+4. displ이 1.8인 경우만 추려내시오.
+
+ 
+
+> mpg %>% filter(displ == 1.8)
+
+# A tibble: 14 × 11
+
+   manufacturer model      displ  year   cyl trans drv     cty   hwy fl  
+
+   <chr>        <chr>      <dbl> <int> <int> <chr> <chr> <int> <int> <chr>
+
+ 1 audi         a4           1.8  1999     4 auto… f        18    29 p   
+
+ 2 audi         a4           1.8  1999     4 manu… f        21    29 p   
+
+ 3 audi         a4 quattro   1.8  1999     4 manu… 4        18    26 p   
+
+ 4 audi         a4 quattro   1.8  1999     4 auto… 4        16    25 p   
+
+ 5 honda        civic        1.8  2008     4 manu… f        26    34 r   
+
+ 6 honda        civic        1.8  2008     4 auto… f        25    36 r   
+
+ 7 honda        civic        1.8  2008     4 auto… f        24    36 c   
+
+ 8 toyota       corolla      1.8  1999     4 auto… f        24    30 r   
+
+ 9 toyota       corolla      1.8  1999     4 auto… f        24    33 r   
+
+10 toyota       corolla      1.8  1999     4 manu… f        26    35 r   
+
+11 toyota       corolla      1.8  2008     4 manu… f        28    37 r   
+
+12 toyota       corolla      1.8  2008     4 auto… f        26    35 r   
+
+13 volkswagen   passat       1.8  1999     4 manu… f        21    29 p   
+
+14 volkswagen   passat       1.8  1999     4 auto… f        18    29 p   
+
+# ℹ 1 more variable: class <chr>
+
+ 
+
+5. displ이 2.0이고 cyl이 6, 8인 경우만 추려내시오.
+
+ 
+
+> mpg %>%filter(displ == 2.0 & cyl %in% c(6, 8))
+
+# A tibble: 0 × 11
+
+# ℹ 11 variables: manufacturer <chr>, model <chr>, displ <dbl>,
+
+#   year <int>, cyl <int>, trans <chr>, drv <chr>, cty <int>, hwy <int>,
+
+#   fl <chr>, class <chr>
+
+ 
+
+6. mpg 데이터의 year에 따른 hwy, cty의 평균을 구하고, cty_mean 기준으로 내림차순 정렬하시오.
+
+ 
+
+> mpg %>%
+
++   group_by(year) %>%
+
++   summarise(
+
++     hwy_mean = mean(hwy, na.rm = TRUE),
+
++     cty_mean = mean(cty, na.rm = TRUE)
+
++   ) %>%
+
++   arrange(desc(cty_mean))
+
+# A tibble: 2 × 3
+
+   year hwy_mean cty_mean
+
+  <int>    <dbl>    <dbl>
+
+1  1999     23.4     17.0
+
+2  2008     23.5     16.7
+
+ 
+
+7. mpg 데이터의 class에 따른 cty, hwy의 합을 구하고, hwy_sum 기준으로 오름차순 정렬하시오
+
+ 
+
+> mpg %>%
+
++   group_by(class) %>%
+
++   summarise(
+
++     cty_sum = sum(cty, na.rm = TRUE),
+
++     hwy_sum = sum(hwy, na.rm = TRUE)
+
++   ) %>%
+
++   arrange(hwy_sum)
+
+# A tibble: 7 × 3
+
+  class      cty_sum hwy_sum
+
+  <chr>        <int>   <int>
+
+1 2seater         77     124
+
+2 minivan        174     246
+
+3 pickup         429     557
+
+4 subcompact     713     985
+
+5 midsize        769    1119
+
+6 suv            837    1124
+
+7 compact        946    1330
+
+ 
+
+ 
+
+문제2. R 텍스트 마이닝 전처리
+
+비행기 데이터 (nycflights13)를 가지고 pipe 연산자와 tidyR 방식을 이용하여 다음을 구하시오 
+
+ 
+
+> install.packages("nycflights13") 
+
+‘C:/Users/USER/AppData/Local/R/win-library/4.4’의 위치에 패키지(들)을 설치합니다.
+
+(왜냐하면 ‘lib’가 지정되지 않았기 때문입니다)
+
+URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/nycflights13_1.0.2.zip'을 시도합니다
+
+Content type 'application/zip' length 4511407 bytes (4.3 MB)
+
+downloaded 4.3 MB
+
+ 
+
+패키지 ‘nycflights13’를 성공적으로 압축해제하였고 MD5 sums 이 확인되었습니다
+
+ 
+
+다운로드된 바이너리 패키지들은 다음의 위치에 있습니다
+
+           C:\Users\USER\AppData\Local\Temp\RtmpwPcN2w\downloaded_packages
+
+> library(nycflights13) 
+
+> library(dplyr)   
+
+ 
+
+1. 비행 달이 7, 8, 9월인 행만 추려내시오.
+
+ 
+
+> flights %>% filter(month %in% c(7: 9))
+
+# A tibble: 86,326 × 19
+
+    year month   day dep_time sched_dep_time dep_delay arr_time
+
+   <int> <int> <int>    <int>          <int>     <dbl>    <int>
+
+ 1  2013     7     1        1           2029       212      236
+
+ 2  2013     7     1        2           2359         3      344
+
+ 3  2013     7     1       29           2245       104      151
+
+ 4  2013     7     1       43           2130       193      322
+
+ 5  2013     7     1       44           2150       174      300
+
+ 6  2013     7     1       46           2051       235      304
+
+ 7  2013     7     1       48           2001       287      308
+
+ 8  2013     7     1       58           2155       183      335
+
+ 9  2013     7     1      100           2146       194      327
+
+10  2013     7     1      100           2245       135      337
+
+# ℹ 86,316 more rows
+
+# ℹ 12 more variables: sched_arr_time <int>, arr_delay <dbl>,
+
+#   carrier <chr>, flight <int>, tailnum <chr>, origin <chr>, dest <chr>,
+
+#   air_time <dbl>, distance <dbl>, hour <dbl>, minute <dbl>,
+
+#   time_hour <dttm>
+
+# ℹ Use `print(n = ...)` to see more rows
+
+ 
+
+2. 목적지(dest)가 "IAH" 이거나 "HOU"인 행만 추려내시오.
+
+ 
+
+> flights %>% filter(dest %in% c("IAH", "HOU"))
+
+# A tibble: 9,313 × 19
+
+    year month   day dep_time sched_dep_time dep_delay arr_time
+
+   <int> <int> <int>    <int>          <int>     <dbl>    <int>
+
+ 1  2013     1     1      517            515         2      830
+
+ 2  2013     1     1      533            529         4      850
+
+ 3  2013     1     1      623            627        -4      933
+
+ 4  2013     1     1      728            732        -4     1041
+
+ 5  2013     1     1      739            739         0     1104
+
+ 6  2013     1     1      908            908         0     1228
+
+ 7  2013     1     1     1028           1026         2     1350
+
+ 8  2013     1     1     1044           1045        -1     1352
+
+ 9  2013     1     1     1114            900       134     1447
+
+10  2013     1     1     1205           1200         5     1503
+
+# ℹ 9,303 more rows
+
+# ℹ 12 more variables: sched_arr_time <int>, arr_delay <dbl>,
+
+#   carrier <chr>, flight <int>, tailnum <chr>, origin <chr>, dest <chr>,
+
+#   air_time <dbl>, distance <dbl>, hour <dbl>, minute <dbl>,
+
+#   time_hour <dttm>
+
+# ℹ Use `print(n = ...)` to see more rows
+
+ 
+
+ 
+
+3. 도착지연 시간(arr_delay)이 60분 이고, 출발지연 시간(dep_delay)이 0분인 행만 추려내시오.
+
+ 
+
+> flights %>%  filter(arr_delay == 60 & dep_delay == 0)
+
+# A tibble: 6 × 19
+
+   year month   day dep_time sched_dep_time dep_delay arr_time
+
+  <int> <int> <int>    <int>          <int>     <dbl>    <int>
+
+1  2013     4    10     1802           1802         0     2238
+
+2  2013     4    12      950            950         0     1352
+
+3  2013     5    23     1130           1130         0     1427
+
+4  2013     6    14     1559           1559         0     2014
+
+5  2013     7    22     1245           1245         0     1635
+
+6  2013     8    29     1720           1720         0     2020
+
+# ℹ 12 more variables: sched_arr_time <int>, arr_delay <dbl>,
+
+#   carrier <chr>, flight <int>, tailnum <chr>, origin <chr>, dest <chr>,
+
+#   air_time <dbl>, distance <dbl>, hour <dbl>, minute <dbl>,
+
+#   time_hour <dttm>
+
+ 
+
+4. year, month, day 열만 추려내시오.
+
+ 
+
+> flights %>% select(year, month, day)
+
+# A tibble: 336,776 × 3
+
+    year month   day
+
+   <int> <int> <int>
+
+ 1  2013     1     1
+
+ 2  2013     1     1
+
+ 3  2013     1     1
+
+ 4  2013     1     1
+
+ 5  2013     1     1
+
+ 6  2013     1     1
+
+ 7  2013     1     1
+
+ 8  2013     1     1
+
+ 9  2013     1     1
+
+10  2013     1     1
+
+# ℹ 336,766 more rows
+
+# ℹ Use `print(n = ...)` to see more rows
+
+ 
+
+5. dep_time부터 arr_delay열까지 한꺼번에 추려내시오.
+
+ 
+
+> flights %>% select(dep_time:arr_delay)
+
+# A tibble: 336,776 × 6
+
+   dep_time sched_dep_time dep_delay arr_time sched_arr_time arr_delay
+
+      <int>          <int>     <dbl>    <int>          <int>     <dbl>
+
+ 1      517            515         2      830            819        11
+
+ 2      533            529         4      850            830        20
+
+ 3      542            540         2      923            850        33
+
+ 4      544            545        -1     1004           1022       -18
+
+ 5      554            600        -6      812            837       -25
+
+ 6      554            558        -4      740            728        12
+
+ 7      555            600        -5      913            854        19
+
+ 8      557            600        -3      709            723       -14
+
+ 9      557            600        -3      838            846        -8
+
+10      558            600        -2      753            745         8
+
+# ℹ 336,766 more rows
+
+# ℹ Use `print(n = ...)` to see more rows
+
+ 
+
+6. year, month, day 에 따른 dep_delay의 평균을 구하시오. (결측치도 처리할 것)
+
+ 
+
+> flights %>%
+
++   group_by(year, month, day) %>%
+
++   summarise(dep_delay_mean = mean(dep_delay, na.rm = TRUE))
+
+`summarise()` has grouped output by 'year', 'month'. You can override
+
+using the `.groups` argument.
+
+# A tibble: 365 × 4
+
+# Groups:   year, month [12]
+
+    year month   day dep_delay_mean
+
+   <int> <int> <int>          <dbl>
+
+ 1  2013     1     1          11.5
+
+ 2  2013     1     2          13.9
+
+ 3  2013     1     3          11.0
+
+ 4  2013     1     4           8.95
+
+ 5  2013     1     5           5.73
+
+ 6  2013     1     6           7.15
+
+ 7  2013     1     7           5.42
+
+ 8  2013     1     8           2.55
+
+ 9  2013     1     9           2.28
+
+10  2013     1    10           2.84
+
+# ℹ 355 more rows
+
+# ℹ Use `print(n = ...)` to see more rows
+
+ 
+
+7. 목적지(dest)에 따른 dep_delay의 평균을 구해 내림차 순으로 정리하시오
+
+ 
+
+> flights %>%
+
++   group_by(dest) %>%
+
++   summarise(dep_delay_mean = mean(dep_delay, na.rm = TRUE)) %>%
+
++   arrange(desc(dep_delay_mean))
+
+# A tibble: 105 × 2
+
+   dest  dep_delay_mean
+
+   <chr>          <dbl>
+
+ 1 CAE             35.6
+
+ 2 TUL             34.9
+
+ 3 OKC             30.6
+
+ 4 BHM             29.7
+
+ 5 TYS             28.5
+
+ 6 JAC             26.5
+
+ 7 DSM             26.2
+
+ 8 RIC             23.6
+
+ 9 ALB             23.6
+
+10 MSN             23.6
+
+# ℹ 95 more rows
+
+# ℹ Use `print(n = ...)` to see more rows
