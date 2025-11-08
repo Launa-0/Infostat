@@ -1,0 +1,147 @@
+---
+title: "HW1"
+output: html_document
+date: "2025-10-06"
+---
+## 직사각행렬을 복원
+```{r}
+X<-matrix(c(2,3,
+            3,2,
+            7,1), byrow=TRUE, nc=2)
+svdX <- svd(X)
+U<-svdX$u
+D<-diag(svdX$d)
+V<-svdX$v
+
+X1<-D[1,1] * U[,1] %*% t(V[,1])
+X2 <- D[2,2] * U[,2] %*% t(V[,2])
+cbind(X, X1, X2, X1+X2)
+
+```
+
+## 정사각 행렬을 복원
+```{r}
+XTX <- t(X) %*% X
+eigXTX <- eigen(XTX)
+L <- diag(eigXTX$values)
+V <- eigXTX$vectors
+
+XTX1  <- L[1,1] * V[,1] %*% t(V[,1])
+XTX2 <- L[2,2] * V[,2] %*% t(V[,2])
+cbind(XTX, XTX1, XTX2, XTX1+XTX2)
+```
+
+## 예제1: iris 주성분 분석
+```{r}
+#4차원 데이터를 2차원이나 3차원 데이터로
+library(tidyverse)
+DF <- read.csv("C:/Users/USER/Downloads/iris.csv")
+DF <- DF %>% rename (SL= SepalLength, SW=  SepalWidth, PL= PetalLength, PW= PetalWidth)
+DF$Species <- factor(case_match(DF$Species, 'setosa'~'set','versicolor'~'vers','virginica'~'virg'))
+head(DF)
+
+apply(DF %>% dplyr :: select(-Species),2,mean)
+
+apply(DF %>% dplyr :: select(-Species),2,var)
+
+S<-cov(DF[,-5])
+R<-cor(DF[,-5])
+round(S,3)
+round(R,3)
+
+#중심화된 변수의 전분산 = tr(s)
+#표준화된 변수의 전분산 = tr(R) =p
+library(corrplot)
+corrplot.mixed(R,upper='ellipse')
+```
+
+* prcomp
+```{r}
+#prcomp는 비지도학습, 변수들을 다 쓰면 된다, center True는 중심화시키라, scale True는 정규화
+MprcompZ <- prcomp(~SL+SW+PL+PW, data=DF, center=  TRUE, scale= TRUE)
+MprcompZ
+#람다1 = 1.7의 제곱, 람다2= 0.9의 제곱
+#prop은 분산 설명량
+summary(MprcompZ)
+plot(MprcompZ)
+MprcompZ$rotation
+biplot(MprcompZ)
+plot(MprcompZ$x[,1:2],col=c('red','green','blue')[DF$Species],pch=(15:17)[DF$Species]);grid()
+```
+
+* 주성분 해석
+  * 주성분1: 0.52(SL)-0.72(SW)+0.58(PL)+0.56(PW): (SL,PL,PW) - (SW)간 차이
+  * 주성분2: -0.38(SL)-0.92(SW)-0.02(PL)-0.07(PW):-(SL,SW)
+  * 주성분3: 0.72(SL)-0.24(SW)-0.14(PL)-0.63(PW):(SL)-(SW,PL,SW)
+* 확인
+```{r}
+apply(MprcompZ$x,2,mean)
+apply(MprcompZ$x,2,var) #R의 아이겐값
+apply(MprcompZ$x,2,sd) #MprcompZ$sdev sqrt (R의 아이겐 값)
+round(cor(MprcompZ$x),4)
+#corrplot:: corrplot.mixed(cor(MprcompZ$x))
+```
+* factoextra로 시각화
+```{r}
+library(factoextra)
+# screeplot : fviz_eig(MprcompZ)
+# 주성분 점수 시각화: fviz_pca_ind(MprcompZ, habillage=DF$region, repel=TRUE)
+# 주성분 계수 시각화: fviz_pca_var(Mprcompz, repel=TRUE)
+# biplot: 주성분 점수와 주성분 계수를 동시에 시각화
+fviz_pca_biplot(MprcompZ, habillage=DF$Species, repel=TRUE)
+```
+
+## 예제2: 미국 50개주 범죄 통계
+```{r}
+DF<-read.csv("C:/Users/USER/Downloads/crime.csv")
+head(DF)
+X<- DF %>% dplyr :: select(murder,rape,robbery, assault,burglary, larceny, auto)
+row.names(X) <-DF$state
+head(X)
+apply(X,2,mean)
+apply(X,2,var)
+S<-cov(X)
+R<-cor(X)
+round(S,3)
+round(R,3)
+library(corrplot)
+corrplot.mixed(R,upper='ellipse')
+```
+
+* prcomp
+```{r}
+library(ggfortify)
+MprcompZ <- prcomp(X, center=TRUE, scale=TRUE)
+summary(MprcompZ) #분산설명량 표
+plot(MprcompZ)
+#v1: 평균 비 범죄율
+#v2: 재산범과 폭력범의 차이
+MprcompZ$X
+biplot(MprcompZ)
+#주성분계수 확인
+round(MprcompZ$rotation,2)
+#주성분점수 확인 및 시각화
+MprcompZ$x %>% round(2) %>% data.frame() %>% dplyr::arrange(desc(PC1)) %>% head()
+MprcompZ$x %>% round(2) %>% data.frame() %>% dplyr::arrange(desc(PC2)) %>% head()
+MprcompZ$x %>% round(2) %>% data.frame() %>% dplyr::arrange(desc(PC3)) %>% head()
+plot(MprcompZ$x[,1:2])
+grid()
+text(MprcompZ$x[,1:2],rownames(MprcompZ$x),pos=1)
+# ggfortify의 autoplot.prcomp.
+# scale=1(기본값)이면 주성분점수의 분산을 1로 변환.
+# scale=0이면 주성분점수 그대로 시각화
+autoplot(MprcompZ, data=X, scale=0, label=TRUE, label.size=3, label.vjust=1.5)
+DF$region <- factor(DF$region) # shape, col 지정은 factor만 가능
+# region: 1(북동 Northeast), 2(중부), 3(남부), 4(서부)
+autoplot(MprcompZ, data=DF, scale=0, shape='region', col='region',label=TRUE, label.label='region', label.size=3, label.vjust=1.5,loadings=TRUE, loadings.label=TRUE, loading.vjust=1.5)
+```
+* factoextra로 시각화
+```{r}
+# screeplot : fviz_eig(MprcompZ)
+# 주성분 점수 시각화: fviz_pca_ind(MprcompZ, habillage=DF$region, repel=TRUE)
+# 주성분 계수 시각화: fviz_pca_var(MprcompZ, repel=TRUE)
+# biplot: 주성분 점수와 주성분 계수를 동시에 시각화
+fviz_pca_biplot(MprcompZ, habillage=DF$region, repel=TRUE)
+```
+
+
