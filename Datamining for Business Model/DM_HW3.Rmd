@@ -1,0 +1,314 @@
+---
+title: "HW3"
+output: html_document
+date: "2025-04-21"
+---
+* 실행시간 측정
+```{r}
+time <- Sys.time()
+```
+
+### 패키지
+* caret, tidymodels 기본 설치
+* 필요에 따라 glmnet, kernlab, ranger, xgboost, rpart, plot등을 설치해야 함
+
+```{r}
+library(caret)
+library(tidyverse)
+library(tidymodels)
+library(skimr)
+library(naniar)
+library(gridExtra)
+library(ggpubr)
+library(scales)
+```
+
+### 읽기
+* 파일 읽기
+
+```{r}
+DF <- read_csv("F:/동덕여대/비데마/df2015na.csv")
+dim(DF)
+str(DF)
+head(DF)
+```
+
+### 변수 조정
+* 문자변수(gnd, bld)를 factor화
+* {0,1}로 코딩된 이상형 변수를 숫자로 처리하거나 factor해서 사용가능
+```{r}
+#에러 발생
+DF<- DF%>% mutate(gnd=factor(gnd),bld=factor(bld), 
+                  lft=factor(lft, labels=c('N','Y')),
+                  smk=factor(smk, labels=c('N','Y')),
+                  alc=factor(alc, labels=c('N','Y')))
+str(DF)
+```
+
+### 분할/ 예측값 저장소 준비
+* TR:TS를 0.75:0.25로 1회 분할
+
+```{r}
+#rsplit객체: 주의: strata에 NA가 있으면 안됨
+
+set.seed(1111)
+IS <- initial_split(DF, prop=0.75)
+TR <- training(IS)
+TS <- testing(IS)
+
+#예측값을 저장할 장소
+TROUT <-TR %>% dplyr :: select(ht)
+TSOUT <- TS %>% dplyr::select(ht)
+```
+
+### 전처리
+* recipe 객체 생성
+  * 연속형 변수는 step_impute_median으로 단순대체
+  * 이산형 변수(이진 가변수 포함)는 step_impute_mode로 단순대체
+  * 이산형 변수(이진 가변수 제외)는 step_dummy로 가변수화
+
+```{r}
+RC<- recipe(ht~., data=TR) %>%
+  step_impute_median(all_numeric_predictors()) %>%
+  step_impute_mode(all_nominal_predictors()) %>%
+  step_dummy(all_nominal_predictors())
+RC
+```
+
+### 튜닝계획 지정
+* 5-fold CV(반복 1회)
+```{r}
+trCtrl <- trainControl(method = 'cv',number=5)
+```
+
+### 선형회귀 모형
+* 튜닝 모수 없음. intercpet는 튜닝 안함
+```{r}
+modelLookup('lm')
+```
+
+* 적합
+```{r}
+set.seed(100)
+Mlm <- train(RC, data=TR, method='lm', trControl = trCtrl) #회귀모형 선택기준
+Mlm
+
+Mlm$finalModel #lm객체(TR을 재적합한 모형)
+
+summary(Mlm$finalModel)
+
+predict(Mlm, TR)
+
+#예측값 저장
+TROUT <-TR %>% dplyr :: select(ht)
+TSOUT <- TS %>% dplyr::select(ht)
+TROUT <-TROUT %>% bind_cols(yhlm=predict(Mlm, newdata=TR))
+TSOUT <- TSOUT %>% bind_cols (yhlm= predict (Mlm, newdata=TS))
+TSOUT
+
+#성능평가 일괄 계산 사용자 함수
+metreg <- function(y,yh){
+  c(rmse=rmse_vec(y,yh),
+    mae=mae_vec(y,yh),
+    rsq=rsq_vec(y,yh))
+}
+metreg(TSOUT$ht, TSOUT$yhlm)
+
+METlm <- metreg(TROUT$ht, TROUT$yhlm) %>%
+  bind_rows(metreg(TSOUT$ht, TSOUT$yhlm))%>%
+  bind_cols(data.frame(model=c('lm','lm'), TRTS=c('TR','TS')))
+METlm
+
+g1 <- TROUT %>% ggplot (aes(x=yhlm, y=ht)) +geom_point()
+g2 <- TROUT %>% ggplot (aes(x=yhlm, y=ht-yhlm)) +geom_point()
+g3 <- TSOUT %>% ggplot (aes(x=yhlm, y=ht)) +geom_point()
+g4 <- TSOUT %>% ggplot (aes(x=yhlm, y=ht-yhlm)) +geom_point()
+grid.arrange(g1,g2,g3,g4, ncol =2)
+
+plot(varImp(Mlm)) #변수중요도, wt가 가장 중요
+```
+
+### ImStepAIC : AIC 변수 선택
+* 튜닝모수 없음, intercept는 튜닝 안함
+* parsnip에 없음
+```{r}
+modelLookup('lmStepAIC')
+```
+
+* 적합
+```{r}
+Mstep <- train(RC, data=TR, method='lmStepAIC', direction='backward', trControl = trCtrl)
+
+
+summary(Mstep$finalModel)
+
+
+TROUT <-TROUT %>% mutate(yhstep=predict(Mstep, newdata=TR))
+TSOUT <-TSOUT %>% mutate(yhstep=predict(Mstep, newdata=TS))
+head(TSOUT)
+
+
+g1<-TROUT%>%ggplot(aes(x=yhstep,y=ht))+geom_point()
+g2<-TROUT%>%ggplot(aes(x=yhstep,y=ht-yhstep))+geom_point()
+g3<-TSOUT%>%ggplot(aes(x=yhstep,y=ht))+geom_point()
+g4<-TSOUT%>%ggplot(aes(x=yhstep,y=ht-yhstep))+geom_point()
+grid.arrange(g1,g2,g3,g4,ncol=2)
+
+
+METstep <- metreg(TROUT$ht, TROUT$yhstep) %>%
+  bind_rows(metreg(TSOUT$ht, TSOUT$yhstep))%>%
+  bind_cols(data.frame(model=c('lmStepAIC','lmStepAIC'), TRTS=c('TR','TS')))
+METstep
+#METstep vs METlm -> TS 기준 mae 2.54 cm 틀림, ...........
+#STEP은 더 간결한 모형, 필요 없는 변수 없음
+```
+
+### glmnet, elasticnet, lasso, ridge
+* enet은 분류분석에 사용 못함. glmnet사용해야 함
+* glmnet: nlambda=100개를 사전 탐색한 후 lambda를 정함
+
+```{r}
+#34p 튜닝 2개
+modelLookup('glmnet')
+#알파: L1 L2를 어케 섞을거냐 라는 거 알파가 1이면 L1 회귀
+# 알파가 0이면 L2 회귀, 0.5면 L1반 L2 반
+```
+
+* 적합
+```{r}
+set.seed(100)
+glmnetGrid <- expand.grid(alpha=seq(0.0, by=0.25), lambda =seq(0.0,0.1, by =0.01))
+trCtrl<-trainControl(method='cv',number=5)
+Mglmnet<-train(RC,data=TR,method='glmnet',trControl = trCtrl,tuneGrid=glmnetGrid) #회귀 모형 선택 기준
+Mglmnet
+Mglmnet$results
+ggplot(Mglmnet) #M$results 시각화
+ggplot(varImp(Mglmnet))
+Mglmnet$bestTune #alpha=1이므로 lasso가 됨
+Mglmnet$resample #최적모수값에 대한 cv통계량
+
+TROUT <-TROUT %>% mutate(yhglmnet=predict(Mglmnet, newdata=TR))
+TSOUT <-TSOUT %>% mutate(yhglmnet=predict(Mglmnet, newdata=TS))
+head(TSOUT)
+
+g1<-TROUT%>%ggplot(aes(x=yhglmnet,y=ht))+geom_point()
+g2<-TROUT%>%ggplot(aes(x=yhglmnet,y=ht-yhglmnet))+geom_point()
+g3<-TSOUT%>%ggplot(aes(x=yhglmnet,y=ht))+geom_point()
+g4<-TSOUT%>%ggplot(aes(x=yhglmnet,y=ht-yhglmnet))+geom_point()
+grid.arrange(g1,g2,g3,g4,ncol=2)
+
+METglmnet<-metreg(TROUT$ht, TROUT$yhglmnet) %>%
+  bind_rows(metreg(TSOUT$ht, TSOUT$yhglmnet))%>%
+  bind_cols(data.frame(model=c('glmnet','glmnet'), TRTS=c('TR','TS')))
+
+
+METglmnet
+```
+
+### nnet
+* nnet: 은닉층이 1개인 MLP
+
+```{r}
+modelLookup('nnet')
+#size -> 은닉층 노드 개수
+#L2벌점의 다른 이름은 weight_dk
+```
+
+* 적합
+```{r}
+set.seed(100)
+nnetGrid<-expand.grid(size=5:8, decay=seq(0.0,0.1,by=0.01))
+Mnnet <- train (RC, data=TR, method='nnet',maxit=1000,trace=FALSE,linout=TRUE,trControl = trCtrl, tuneGrid = nnetGrid)
+#linout=TRUE가 회귀분석
+Mnnet #튜닝 결과(M$result)
+
+ggplot(Mnnet) #M$results 시각화 size(#Hidden Units) vs RMSE(튜닝모수별 CV통계량 평균)
+Mnnet$bestTune
+ggplot(varImp(Mnnet))
+
+#예측치 저장하기
+TROUT <- TROUT %>% mutate(yhnnet=predict(Mnnet, newdata=TR))
+TSOUT <- TSOUT %>% mutate(yhnnet=predict(Mnnet, newdata=TS))
+head(TSOUT)
+
+#잔차 집에서 그려보기
+#TR에서 아주 잘 맞춘다 TR을 외웠을 가능성 있음 과적합 발생
+METnnet <- metreg(TROUT$ht, TROUT$yhnnet) %>% 
+            bind_rows(metreg(TSOUT$ht, TSOUT$yhnnet)) %>%
+            bind_cols(data.frame(model=c('nnet','nnet'), TRTS=c('TR','TS')))
+METnnet
+METlm
+```
+
+### svmRadial
+* svmRadial: kernlaab:ksvm
+
+```{r}
+#svmRadial 은 딥러닝이 나오기 전까지 정확도가 제일 높았던 모형
+modelLookup('svmRadial')
+```
+
+* 적합
+```{r}
+set.seed(100)
+svmGrid<-expand.grid(sigma=2^(-2:2), C=2^(-2:2))
+
+MsvmRadial <-train(RC,data=TR,method='svmRadial',trControl = trCtrl, tuneGrid = svmGrid)
+
+MsvmRadial #튜닝결과(M$result)
+MsvmRadial$results
+ggplot(MsvmRadial) #M$results 시각화 Sigma, Cost vs RMSE
+ggplot(varImp(MsvmRadial))
+
+MsvmRadial$bestTune
+MsvmRadial$finalModel
+MsvmRadial$resample
+
+TROUT<-TROUT%>%mutate(yhsvmRadial=predict(MsvmRadial, newdata=TR))
+TSOUT<-TSOUT%>%mutate(yhsvmRadial=predict(MsvmRadial, newdata=TS))
+head(TSOUT)
+
+#지도학습 알고리즘 크게보면 2종류 하나는 회귀분석계통(직선), 나무 모형(수평, 수직선)
+```
+
+### rpart
+* rpart(회귀나무)
+* cp는 Complexity Parameter(0.01) 단계별 학습 가중치
+```{r}
+modelLookup('rpart')
+```
+
+* 적합
+```{r}
+set.seed(100)
+rpartGrid<-expand.grid(cp=seq(0,0.2,length=10))
+Mrpart <- train(RC, data=TR, method ='rpart',trControl = trCtrl, tuneGrid = rpartGrid)
+Mrpart
+Mrpart$results
+ggplot(Mrpart)
+ggplot(varImp(Mrpart))
+Mrpart$bestTune
+Mrpart$finalModel
+plot(Mrpart$finalModel)
+text(Mrpart$finalModel)
+library(rpart.plot)
+rpart.plot::rpart.plot(Mrpart$finalModel) #최종 나무모형
+Mrpart$resample
+TROUT <- TROUT %>% mutate(yhrpart=predict(Mrpart,newdata=TR))
+TSOUT <- TSOUT %>% mutate(yhrpart=predict(Mrpart,newdata=TS))
+head(TSOUT)
+#p.55
+```
+
+### TR,TS평가
+* 모형별 성능평가결과 결합
+```{r}
+MET<-bind_rows(METlm,METstep,METglmnet,METnnet)
+MET<-arrange(bind_rows(METlm,METstep,METglmnet,METnnet),rmse)
+
+g1<-ggplot(MET,aes(x=model,y=rsq,shape=TRTS,group=TRTS))+
+    geom_line()+geom_point(size=3)
+g2<-ggplot(MET,aes(x=model,y=rmse,shape=TRTS,col=TRTS,group=TRTS))+
+    geom_line()+geom_point(size=3)
+grid.arrange(g1,g2,nrow=2,ncol=1)
+#p.78
