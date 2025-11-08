@@ -18,3 +18,5 @@ Text Mining: 텍스트마이닝
 25년 2학기
 
 Multivariate analysis : 다변량분석
+Database Applications: 데이터 베이스 응용
+Machine Learning: 기계학습
