@@ -1,0 +1,279 @@
+## R 자료처리
+### 1. 패키지 로딩
+```{r}
+library(tidyverse)
+```
+```{r}
+options(pillar.sigfig=6) #tibble 출력시 유효소수점 자릿수
+```
+```{r}
+sessionInfo() #pip list 또는 conda list
+```
+### 2. 읽기
+* pd의 index 와 columns 는 R의 rownames, colnames 에 해당됨
+### read.csv, read_csv
+* base :: read.csv : 변수이름이 컬럼수보다 1개 적으면 첫 번째 컬럼을 rownames 로 저장함. pd의 read_table이나 read_csv 와 유사하게 작동함
+* readr : read_csv : 변수이름이 컬럼수보다 1개 적으면 변수 이름만큼만 읽고 마지막 열을 무시함. 이를 방지하려면 col_names=FALSE, skip=1 로 첫 행을 무시하고, 수동으로 변수 이름을 지정하면 됨. 사용권장.
+```{r}
+#base :: read.csv는 pd read_table, read_csv와 유사함
+DF <- read.csv('F:/동덕여대/비데마/aaa.csv')
+str(DF)
+```
+```{r}
+#readr :: read_csv는 pd read_table, read_csv와 다름
+#변수 이름이 1개 적어서 문제 발생
+DF <- read_csv('F:/동덕여대/비데마/aaa.csv')
+```
+```{r}
+head(DF)
+```
+```{r}
+#문제해결 col_names=FALSE, skip=1 (첫행 건너뜀)
+DF <- read_csv ('F:/동덕여대/비데마/aaa.csv', col_names=FALSE, skip=1)
+```
+```{r}
+colnames(DF)<-c('nm','sx','bd','ht','wt')
+head(DF)
+```
+```{r}
+dim(DF) #DF.shape
+```
+```{r}
+DF$nm #DF.index, read.csv로 읽으면 rownames(DF)에 해당당
+```
+```{r}
+colnames(DF) #DF.colums
+```
+### 3.복사
+```{r}
+#DF2=DF.copy()
+DF<-DF
+```
+### 4. 변수이름 변경 rename
+```{r}
+#(pd)DF.rename(columns={'sx':'gnd','bd':'bld'}, inplace=True)
+#DF <- rename(DF,gnd=sx, bld=bd)
+DF <- DF %>% dplyr :: rename(gnd=sx,bld=bd)
+head(DF)
+```
+### 5. 변수유형 변경 (astype(유형))
+```{r}
+#DF.dtypes
+str(DF)
+```
+### 6. 변수계산
+* BMI 계산
+```{r}
+#Pandas doesn't allow columns to be created via a new attribute name
+#(X) DF.bmi = np.round(DF.wt/np.power(DF.ht/100,2),1)
+#DF['bmi']=np.round(DF.wt/np.power(DF.ht/100,2),1)
+DF <- DF %>% mutate(bmi=round(wt/(ht/100)^2,1))
+head(DF)
+```
+### 7. 다른변수로 코딩변환
+* pd의category, R의 fator
+* 이산형 변수(범주형 변수, 질적 변수): 가질수 있는 값(수준)이 한정적이고 셀수 있는 변수. 예: 성별, 혈액형 등
+* 수준(levels, pd categories): 이산형 변수가 가질수 있는 값. 예: 성별의 수분은 {F,M}, 혈액형의 수준은 {A,AB,B,O}
+* 수준수(nlevels): 수준의 개수. 성별은 수준수가 2, 혈액형은 수준수가 4
+* 이산형 변수의 처리: 변수값을 읽어 수준을 파악하고 오름차순으로 수준을 정렬한 후 수준순서에 따라 숫자로 대체
+* 예1: gnd를 읽어 수준 {F,M}을 파악하고, F는 1, M은 2로 취급함
+* 예2: bld를 읽어 수준 {A,AB,B,O}을 파악하고, A는 1,...,O는 4로 취급함
+* R에서 이산형 변수의 처리
+* 데이터 읽을때 factor로 지정 가능(복잡. read.table (colClasses), read_csv (col_types)`)
+* x <- factor(x) : factor x의 수준반환. Series.cat.categories
+* levels(x) : 수준순서 재조정. Series.cat.reorder_categories()
+* as.numeric(x) : factor x를 수치변수로 변환. 수준은 1부터 할당함. Series.cat.codes(), sk LabelEncoding
+* obesity 계산 (http://health.cdc.go.kr/health/mobileweb/content/group_view.jsp?CID=XUNT32FT6B)
+* pd np.where()
+```{python}
+#DF['obesity']= np.where(DF.bmi<18.5, '1저체중', np.where(DF.bmi<23, '2정상', np.where(DF.bmi<25, '3과체중', '4비만')))
+#DF['obesity'] = DF['obesity'].astype('category') #.cat.reorder_categories(['1저체중', '2정상', '3과체중', '4비만'])
+#DF['obesity'].cat.categories # 수준을 오름차순으로 자동 정리 [과체중,비만, 저체중, 정상]
+# 사용자가 수준을 재지정
+#DF['obesity'].cat.reorder_categories(['1저체중', '2정상', '3과체중', '4비만'], inplace=True)
+#DF['obesity'].cat.categories
+```
+* R ifelse(), if_else()
+```{r}
+DF$obesity <- ifelse(DF$bmi<18.5, '저체중', ifelse(DF$bmi<23, '정상',
+ifelse(DF$bmi<25, '과체중', '비만')))
+DF$obesity <- factor(DF$obesity) # 수준 {과체중,비만,저체중, 정상}
+DF$obesity
+#수준 재지정 #수준을 조정
+DF$obesity <- factor(DF$obesity, levels=c('저체중','정상','과체중','비만'))
+DF$obesity
+#factor를 수치벡터로 변환
+as.numeric(DF$obesity)
+```
+* isobese : 비만 가변수. 비만(bmi >= 25)이면 'Y', 아니면 'N'
+```{r}
+#DF['isobese']=np.where(DF['bmi']>=25,'Y','N')
+DF<-DF%>%mutate(isobese=factor(ifelse(bmi>=25,'Y','N')))
+head(DF)
+```
+### 8.기술 통계
+### DF 원소접근
+* vector:pd Series
+* factor: pd.Series category
+* (superseded) sumarize_at(.tbl, .vars, .funs, ....)
+* .tbl:tbl 객체
+* .vars : 변수이름문자벡터(예: c('ht', 'wt') ), 변수위치벡터(예:c(3,5) ), vars() 로 생성한 변수리스트(예: vars(ht, wt) )
+* .funs : 함수이름리스트(예: list(n=length, mn=mean) )
+* . summarize(.tbl, across(.cols, .fns, ... ))
+* .tbl : tbl 객체
+* .cols: .fns 를 적용할 변수
+* .fns : 함수이름리스트(예: list(n=length, mn=mean) )
+* 함수이름 지정 1: list(n=length, mn=mean) )
+* 함수이름 지정 2: list(n=length, mn = ~mean(.x. na.rm=TRUE)))
+* 다변수 처리
+```{r}
+#DF[['ht','wt']].describe().loc[['count','mean','std']]
+DF %>% summarize_at(c('ht','wt'), list(n=length, mean= mean, sd=sd))
+DF %>% summarize (across(c('ht','wt'), list(n=length, mean= ~mean(.x, na.rm =TRUE), sd=~sd(.x, na.rm=TRUE))))
+# * 모든 변수 처리
+# *describe()는 수치형 변수만 요약
+# *describe(exclude=[np.number]): 비수치형 변수를 요약
+#DF.describe().T
+DF %>% summarize_if(is.numeric, list(n=length, mean=mean, sd=sd))
+#DF.describe(exclude=[np.number])
+num <- colnames(DF)[sapply(DF, is.numeric)]
+DF %>% summarize (across(all_of(num), list(n=length, mean=mean, sd=sd)))
+```
+### 9. 분포시각화
+### Histogram
+```{r}
+# DF.hist() # 모든 변수의 히스트로그램
+# DF.plot(y='ht', kind='hist', alpha=0.5); # #DF['ht'].hist(alpha=0.5);
+# plt.hist(DF.ht, alpha=0.5);
+# sns.distplot(DF.ht, rug=True, fit=stats.norm);
+hist (DF$ht)
+ggplot(DF, aes(x=ht)) + geom_histogram()
+# ggplot(DF) +
+# geom_histogram(aes(x=ht, y= ..density..), bins=5)+
+# geom_density(aes(x=ht))
+ggplot(DF)+ geom_histogram(aes(x=ht, y=after_stat(density)), bins=5)+ geom_density(aes(x=ht))
+```
+### Boxplot
+```{r}
+# DF.plot(y='ht', kind='box', grid=True); #DF.boxplot(column='ht')
+# plt.boxplot(DF.ht); plt.grid()
+# sns.boxplot(DF.ht, orient='v');
+boxplot(DF$ht)
+```
+### 10. 기술통계 groupby
+* 단변량 처리:
+```{r}
+#htdesc=DF['ht'].groupby(DF['gnd']).describe()
+DF %>%
+group_by(gnd) %>%
+summarize(across(ht, list(n=length, mean=mean, sd=sd)))
+# summarize_at(vars(ht), list(ht_n=length, ht_mean, ht_sd=sd))
+```
+* 다변량 처리
+```{r}
+# DF[['ht', 'wt', 'gnd']].groupby('gnd') .describe()
+# DF.groupby('gnd') [['ht','wt']].describe()
+DF %>%
+group_by(gnd) %>%
+summarize(across(c(ht,wt), list(n=length, mean=mean, sd=sd, min=min, max=max)))
+# summarize_at(vars(ht,wt), list(n=length, mean=mean, sd=sd, min=min, max=max))
+# DF[['ht']].groupby(DF.gnd).mean().loc['F']
+htwtdesc <- DF %>% group_by(gnd) %>%
+summarize(across(c(ht,wt), list(n=length, mean=mean, sd=sd, min=min, max=max)))
+# summarize_at(vars(ht,wt), list(n=length, mean=mean, sd=sd, min=min, max=max))
+htwtdesc[htwtdesc$gnd == 'F', 'ht_mean']
+htwtdesc%>%dplyr::filter(gnd=='F') %>% dplyr::select(ht_mean)
+```
+### 11. 분포시각화 groupby
+### Histogram
+```{r}
+# DF.hist(column='ht', by='gnd');
+# DF.groupby('gnd' ).plot(y='ht', kind='hist', alpha=0.5);
+# plt.hist(DF.ht[DF.gnd == 'F']);
+# plt.hist(OF.ht[DF.gnd == 'M']);
+# sns.distplot(DF.ht[DF.gnd == 'F'], rug=True, fit=stats.norm);
+# sns.distplot(DF.ht [DF.gnd == 'M'], rug=True, fit=stats.norm);
+# 분리해서 그리기
+ggplot(DF) + geom_histogram(aes(x=ht), fill='white', color='black') +
+facet_grid(gnd ~.)
+#한 그림에 겹쳐그리기
+ggplot(DF) + geom_histogram(aes(x=ht, y=after_stat(density), fill=gnd), alpha = 0.5) + geom_density(aes(x=ht, fill=gnd), alpha = 0.5)
+```
+### Boxplot
+```{r}
+# DF.boxplot (column='ht', by='gnd');
+# plt.boxplot([ DF.ht[DF.gnd == 'F'], DF.ht[DF.gnd == 'M']]);
+# sns.boxplot (x='gnd', y='ht', data=DF)
+boxplot(ht~gnd, data=DF)
+ggplot(DF, aes(x=gnd, y=ht))+geom_boxplot()
+```
+### 산점도 Scatterplot
+```{r}
+# DF.plot(x='wt', y='ht', kind='scatter', c=np.repeat(['red','blue'], [4,4])) ;
+# DF.plot.scatter(x='wt', y='ht', c= DF.gnd.cat.codes, colormap='viridis') ;
+# plt.scatter(OF.wt, DF.ht, c=np.repeat(['red','blue'] , [4,4]))
+# sns.scatterplot (x='wt', y='ht', hue='gnd', style='gnd', size='bmi', data=DF ):
+plot(DF$wt, DF$ht, type='n')
+text(DF$wt, DF$ht, label=DF$gnd)
+ggplot(DF, aes(x=wt, y=ht, col=gnd, shape=gnd))+geom_point(size=3)
+```
+### 12. 빈도표와 교차표
+### 빈도표
+* table(x,y,...): Series.value_counts()
+* xtabs(formula, data)
+ 
+```{r}
+#gndfreq = DF.gnd.value_counts() # DF.gnd.value_counts(), (X)
+#gndprop = gndfreq/sum(gndfreq)
+#gndtbl = pd.concat([gndfreq, gndprop], axis=1)
+#gndtbl.columns = ['Freq','Prop']
+#gndtbl
+#gndtbl.plot.bar(y='Freq');
+gndfreq <- table(DF$gnd)
+gndfreq
+margin.table(gndfreq)
+prop.table(gndfreq)
+cbind(Freq=gndfreq, Prop=prop.table(gndfreq))
+barplot(gndfreq)
+```
+* xtabs()
+```{r}
+# gndtbl = pd.crosstab(index=DF.gnd, columns='Freq')
+# gndtbl ['Prop'] = gndtbl['Freq']/gndtbl['Freq'].sum()
+gndtab <- xtabs(~gnd, data=DF)
+gndtab
+prop.table(gndtab)
+cbind(Freq=gndtab, Prop=prop.table(gndtab))
+```
+### 교차표
+* crosstab
+```{r}
+# gbtbl = pd.crosstab(index=DF.gnd, columns=DF.bld)
+# gbtbl = pd.crosstab(index=DF.gnd, columns=DF.bld, margins=True)
+gbtbl <- table(DF$gnd, DF$bld)
+gbtbl <- xtabs(~gnd+bld, data=DF)
+gbtbl
+```
+* Total, Percentage
+```{r}
+margin.table(gbtbl) #Total
+prop.table(gbtbl) #Percent
+addmargins(gbtbl) #tbl with margins
+```
+ 
+* Col totals, Col percentage(Row%)
+```{r}
+margin.table(gbtbl, margin=2)
+prop.table(gbtbl, margin=2)
+addmargins(prop.table(gbtbl, margin=2), margin=1)
+```
+ 
+* Row totals, Row percentage(Row%)
+```{r}
+margin.table(gbtbl, margin=1)
+prop.table(gbtbl, margin=1)
+addmargins(prop.table(gbtbl, margin=1), margin=2)
+```
+ 
+
+중간에 파이썬 부분이 오류남: 해결할것

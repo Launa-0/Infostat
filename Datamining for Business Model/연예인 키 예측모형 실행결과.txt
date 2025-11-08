@@ -1,0 +1,142 @@
+## 자료 설명
+* htwtbd00.csv : 2024년 온라인으로 수집한 연예인 신체계측자료
+* n=100, 연예인(여자, 남자 각 50명)
+* htwtbd00-v2-testset.csv (검정용) : 2024년 온라인으로 수집한 연예인 신체계측자료
+* n=20, 연예인(여자, 남자 각 10명)
+## 읽기
+```{r}
+library(tidyverse)
+library(tidymodels)
+DF <- read.csv('F:/동덕여대/비데마/htwtbd00-v2.csv') #폴더 하나 만들어서 거기 넣기
+DF
+dim(DF)
+TS<-read.csv('F:/동덕여대/비데마/htwtbd00-v2-testset.csv')
+TS
+dim(TS)
+head(TS)
+```
+## 자료 정리
+* age : 나이 계산
+* 이산형 변수 처리
+* 문자 변수 (gnd, bd)를 factor화
+* {0,1}로 코딩된 가변수는 {N,Y}로 재코딩 권장
+```{r}
+#mutate (새 변수를 만들거나 고칠때)
+DF<-mutate(DF, age=2025-byr,gnd=factor(gnd),bd=factor(bd),type=factor(type))
+#이산형은 factor 처리
+str(DF)
+TS<-mutate(TS, age=2025-byr,gnd=factor(gnd),bd=factor(bd),type=factor(type))
+str(TS)
+#factor (mbti, levels = c(16개 레벨 지정))
+#factor (bd, levels = c('A','AB','B','O')) 데이터를 만들때 설사 없다 하더라도 레벨 수준 유지
+#수준이 안맞으면 예측시 문제, 대소문자에 유의
+#데이터가 복잡하면 레벨 다 주고 시작
+#두 데이터를 똑같은 형식으로 만들었음
+```
+## 탐색
+* 결측:
+* 결측이 한개라도 포함된 관측값은 회귀분석시 제외됨
+* 회귀분석시 결측이 많은 변수는 제외시키고, 결측이 심각하지 않으면 대체(impute)권장
+ 
+```{r}
+#탐색 (결측을 알아야 함)
+library(naniar)
+vis_miss(DF) #결측치를 그림으로 보여줌
+vis_miss(TS) #이거 에러남 다시 체크
+```
+* 일원 빈도표
+```{r}
+#이산형 변수는 다 빈도를 구해야
+xtabs(~gnd,data=DF)
+table(DF$gnd)
+xtabs(~mbti,data=DF)
+DF%>%summarize(across(c(ht,wt,ftln), list(n=length, mn=~mean(.x,na.rm=TRUE),sd=~sd(.x,na.rm=TRUE))))
+ggplot(DF,aes(x=ht,after_stat(density)))+geom_histogram()+geom_density() #이거 시험 나옴 메모메오 암기할 필요는 없다
+xtabs(~gnd+bd,data=DF)
+DF%>% group_by(gnd) %>%
+summarize(across(c(ht,wt,ftln),list(n=length,mn=~mean(.x,na.rm=TRUE),sd=~sd(.x,na.rm=TRUE))))
+ggplot(DF,aes(x=gnd,y=ht))+geom_boxplot() # 시험 나오니 적어와라
+ggplot(DF,aes(x=bd,y=ht))+geom_boxplot()
+ggplot(DF,aes(x=mbti,y=ht))+geom_violin()
+ggplot(DF,aes(x=type,y=ht))+geom_violin()
+```
+* 연속형~이산형
+```{r}
+R <- cor(DF%>%select_if(is.numeric),use='pairwise') #pairwise 히면 결측 없이 상관계수가 계산됨 (알아두기!!)
+R
+#y와 x사이
+library(corrplot)
+corrplot.mixed(R,upper='ellipse') #무게와 발길이 사이 상관계수가 높다
+TR <- DF %>% dplyr::select(-ftln,-mbti) #발길이(상관계수 높고 결측이 많아서) mbti를 뺌
+dim(TR)
+vis_miss(TR)
+#모형이름 <-??(y~x1+x2,data=TR) 뱐수가 너무 많으면 x1+x2 대신 .찍기 (.의 의미는 y빼고 다)
+#??는 lm이런 함수
+#??(y~.,data=TR) x가 너무 많을떄
+```
+* 모형 학습1: 완전한 관측치로만 분석석
+```{r}
+TR0<-na.omit(TR)
+Mlm0 <- lm(ht~gnd+bd+type+age+wt,data=TR0)
+summary(Mlm0)
+# 예측식
+#y^ (y추정치) = 138 + 0*gndF (여자가 기준) + 2.14* gndM + 0*bdA(A가 기준, 참조수준) + (-0.6)*bdB+ (-3.13)*bdO+ 0.82*bdAB
+#+0*type가수+4.00*type배우+(-3.03)*type예능 + (-0.02)*age+0.3*체중
+#0.05보다 p가 작으면 중요한거
+#전처리 객체 정의
+RC<- recipe(ht~gnd+bd+type+age+wt,data=TR) %>%
+step_impute_median(wt) %>% #몸무게 값이 결측이면 중위수로 대체
+step_dummy(all_nominal_predictors()) #가변수를 만들어라
+#step: 전처리 했다는 의미
+RC <- prep (RC,TR) #암기할것 데이터를 전처리해서 준비하라 라는 의미
+TRprep <- bake(RC,TR)
+head (TRprep)
+#모형 적합합
+Mlm <- lm(ht~.,data=TRprep)
+summary(Mlm)
+plot(Mlm) #점검 x축이 y햇
+#TR,TS,SC : 데이터셋
+#TROUT: y햇, 데이터셋
+#예측값 저장장
+TROUT <- TR %>% dplyr :: select (name,ht) %>%
+mutate(yh=predict(Mlm),res=ht-yh)
+TROUT %>% arrange(desc(abs(res))) %>% head(n=10)
+#plot(Mlm) 이상치치
+i<-c(16,47,63,69)
+TROUT[i,]
+ggplot(TROUT,aes(x=yh,y=ht,label=name))+
+geom_point()+
+geom_label()+
+geom_abline(intercept = 0,slope=1)
+#x축이 y햇, y축이 y (Y제곱이 1에 가깝다 하는건 선 위에 있다는 의미)
+library(plotly)
+plot_ly(data=TROUT,x=~yh,y=~ht,text=~name)
+#TS에 전처리한 객체를 적용한 결과를 TSprep에 저장장
+TSprep <-bake(RC,TS) #RC로 TS를 전처리한 결과를 반환환
+head(TSprep)
+#예측값 저장장
+TSOUT <-cbind(TS,yh=predict(Mlm,TSprep))
+TSOUT <- TS %>% dplyr ::select (name,ht) %>%
+mutate(yh=predict(Mlm,TSprep),res=ht-yh)
+TSOUT %>% arrange (desc(abs(res))) %>% head (n=10)
+```
+* 모형 성능 평가가
+```{r}
+metreg <-function(y,yh)
+{c(rmse=rmse_vec(y,yh),mae=mae_vec(y,yh),mape=mape_vec(y,yh),rsq=rsq_vec(y,yh))}
+#map : 평균절대 백분위 오차 (평균 2프로 정도 틀림)
+#mae: 절대오차의 평균 (평균 3.93센치 틀린다다)
+metreg(TROUT$ht,TROUT$yh)
+metreg(TSOUT$ht,TSOUT$yh)
+```
+* 새로운 데이터셋 예측, 타겟값 없이 타겟 예측
+* 주의: 모형 학습에 사용된 형태와 동일하도록 새 데이터셋을 변환해야함
+```{r}
+SC <- tibble (name=c('아무개','누군고'),gnd=factor(c('F','M')),byr=c(2005,1964),wt=c(NA,72),
+bd=factor(c('A','O'),levels=c('A','AB','B','O')),
+type=factor(c('배우','예능'),levels=c('가수','배우','예능')),
+age=2025-byr)
+SCprep<-bake(RC,SC)
+head(SCprep)
+predict(Mlm,SCprep)
+```
