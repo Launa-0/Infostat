@@ -1,0 +1,48 @@
+---
+title: "HW3"
+output: html_document
+date: "2025-11-11"
+---
+```{r}
+library(tidyverse)
+library(corrplot)
+DF<-read_csv("C:/Users/USER/Downloads/QUSTNAIR.csv")
+X<-DF%>%select(starts_with('Q'))
+apply(is.na(X),2,sum)
+
+X<-na.omit(X)
+dim(X)
+
+R<-cor(X)
+corrplot(R,method='ellipse')
+
+X<-X%>%mutate(Q04=6-Q04)
+R<-cor(X)
+corrplot(R,method='ellipse')
+
+##크론바흐 알파 0.6이상
+library(psych)
+alpha(X%>%select(Q01:Q06))
+alpha(X%>%select(Q07:Q12))
+alpha(X%>%select(Q13:Q18))
+
+
+##요인
+KMO(X)
+cortest.bartlett(R,n=nrow(X))
+
+#회전전
+#주성분 분석을 통해 요인 추출
+Mpca<-principal(X,nfactors = 3,rotate='none')
+Mpca
+
+#h2: 공통성분산/ u2: 유일성 분산
+#h가 클수록 좋음
+Mpc<-principal(X,nfactors = 3) #,rotate='varimax'
+Mpc
+
+biplot(Mpc)
+print(Mpc$loadings,cutoff = 0.5)
+
+fa.diagram(Mpc,simple=FALSE,cut=0.3,digit=3)
+```
