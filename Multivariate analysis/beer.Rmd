@@ -1,0 +1,127 @@
+---
+title: "Beer"
+output: html_document
+date: "2025-12-10"
+---
+```{r}
+library(tidyverse)
+library(cluster)     # silhouette
+library(factoextra)  # fviz_cluster, fviz_nbclust
+
+# 파일 경로는 본인 환경에 맞게 수정
+
+beer <- read_csv("C:/Users/USER/Downloads/beers3.csv")
+
+glimpse(beer)
+summary(beer)
+table(beer$country)
+
+# rownames 로 쓰기 위해 data.frame 으로 변환
+
+beer_df <- as.data.frame(beer)
+
+rownames(beer_df) <- beer_df$pname
+
+# 분석에 사용할 변수만 추출
+
+X <- beer_df[, c("cal", "sod", "alc", "cost")]
+
+# NA 제거(있으면)
+
+X <- na.omit(X)
+
+# 표준화 (평균 0, 분산 1)
+
+Z <- scale(X)
+Z <- as.data.frame(Z)
+
+head(Z)
+
+# 유클리드 거리
+
+DZ <- dist(Z)
+
+# Ward.D2 방법
+
+hc_ward <- hclust(DZ, method = "ward.D2")
+
+plot(hc_ward, hang = -1, main = "Dendrogram (Ward.D2)")
+rect.hclust(hc_ward, k = 3, border = 2:4)   #여기서는 k=3 예시
+
+# 3개 군집으로 cut
+
+k_hc <- cutree(hc_ward, k = 3)
+table(k_hc)
+
+# 실루엣 계수
+
+Sil_hc <- silhouette(k_hc, DZ)
+summary(Sil_hc)
+plot(Sil_hc, border = NA)
+
+fviz_nbclust(Z, kmeans, method = "wss") +
+labs(title = "Elbow Method for k")
+
+set.seed(1234)
+km3 <- kmeans(Z, centers = 3, nstart = 20)
+
+km3$size        # 군집 크기
+km3$centers     # 표준화된 변수 기준 군집평균
+
+# 레이블
+
+k_km <- km3$cluster
+table(k_km)
+
+fviz_cluster(km3, data = Z,
+ellipse.type = "euclid",
+star.plot   = TRUE,
+repel       = TRUE) +
+labs(title = "K-means Clustering (k=3)")
+
+Sil_km <- silhouette(k_km, DZ)
+summary(Sil_km)
+plot(Sil_km, border = NA)
+
+beer_cluster <- beer_df %>%
+mutate(cluster = factor(k_km))
+
+head(beer_cluster)
+table(beer_cluster$cluster)
+
+beer_cluster %>%
+group_by(cluster) %>%
+summarise(
+n    = n(),
+cal  = mean(cal),
+sod  = mean(sod),
+alc  = mean(alc),
+cost = mean(cost)
+)
+
+beer_cluster %>%
+count(cluster, country) %>%
+arrange(cluster, desc(n))
+
+beer_long <- beer_cluster %>%
+select(pname, cluster, cal, sod, alc, cost) %>%
+pivot_longer(cols = c(cal, sod, alc, cost),
+names_to = "variable",
+values_to = "value")
+
+ggplot(beer_long, aes(x = cluster, y = value, fill = cluster)) +
+geom_boxplot() +
+facet_wrap(~ variable, scales = "free_y") +
+labs(title = "Cluster Profiles (Boxplots)",
+x = "Cluster", y = "Value") +
+theme_bw()
+
+beer_cluster %>%
+group_by(cluster) %>%
+summarise(
+cal  = mean(cal),
+sod  = mean(sod),
+alc  = mean(alc),
+cost = mean(cost)
+)
+```
