@@ -22,3 +22,8 @@ Multivariate analysis : 다변량분석
 Database Applications: 데이터 베이스 응용
 
 Machine Learning: 기계학습
+
+
+26년 1학기
+Data Visualization :  데이터시각화
+Introduction to Computer Programming: 컴퓨터 프로그래밍 입문
